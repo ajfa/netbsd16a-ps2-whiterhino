@@ -1,0 +1,36 @@
+From 1f923ed021e62ea3641c20b97272aa1b87dfd8f2 Mon Sep 17 00:00:00 2001
+From: ajfa <3520832+ajfa@users.noreply.github.com>
+Date: Thu, 1 Oct 2026 21:56:53 -0600
+Subject: [PATCH 2/3] intrelay: relay the SMAP interrupts too
+
+NetBSD 1.6A drives the SMAP Ethernet controller from the EE, as Sony's
+Linux kit does, so it needs TXDNV, RXDNV, TXEND, RXEND and EMAC3 (DEV9
+interrupt bits 2 to 6), not only ATA0/ATA1. Without them every packet
+times out. Build with -DNO_SMAP_RELAY to leave them out.
+---
+ TGE/iop/intrelay/src/intrelay.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/TGE/iop/intrelay/src/intrelay.c b/TGE/iop/intrelay/src/intrelay.c
+index 2680b67..84e0a1a 100644
+--- a/TGE/iop/intrelay/src/intrelay.c
++++ b/TGE/iop/intrelay/src/intrelay.c
+@@ -137,6 +137,15 @@ int _start(int argc, char *argv[])
+ 		/* ps2dev9 seems to be running use other way to get interrupts. */
+ 		dev9RegisterIntrCb(1, intr_dev9_handler_dev9);
+ 		dev9RegisterIntrCb(0, intr_dev9_handler_dev9);
++#ifndef NO_SMAP_RELAY
++		/* NetBSD 1.6A drives SMAP from the EE, like Sony's Linux kit,
++		 * so TXDNV/RXDNV/TXEND/RXEND/EMAC3 (bits 2-6) must be relayed too. */
++		{
++			int i;
++			for (i = 2; i <= 6; i++)
++				dev9RegisterIntrCb(i, intr_dev9_handler_dev9);
++		}
++#endif
+ 
+ 		dev9IntrEnable(SPD_INTR_ATA0);
+ 		dev9IntrEnable(SPD_INTR_ATA1);
+-- 
+2.34.1
+

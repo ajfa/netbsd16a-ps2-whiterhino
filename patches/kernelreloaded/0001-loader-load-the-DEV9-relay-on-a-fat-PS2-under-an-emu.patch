@@ -1,0 +1,42 @@
+From 03664d4a0bb7d34f114bede4eed284ea9ab2cd28 Mon Sep 17 00:00:00 2001
+From: ajfa <3520832+ajfa@users.noreply.github.com>
+Date: Thu, 1 Oct 2026 21:56:53 -0600
+Subject: [PATCH 1/3] loader: load the DEV9 relay on a fat PS2 under an
+ emulator
+
+On a fat PS2 the DEV9 interrupt relay is only loaded when ps2dev9_probed()
+says the HDD/network adapter is there. Under WhiteRhino the probe does not
+see it, so NetBSD 1.6A never got ATA or SMAP interrupts. Load the relay
+whenever DEV9 is enabled; build with -DNO_FAT_DEV9_RELAY for the old check.
+---
+ loader/loader.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/loader/loader.c b/loader/loader.c
+index daaf59d..873c626 100644
+--- a/loader/loader.c
++++ b/loader/loader.c
+@@ -1536,7 +1536,12 @@ static int dev9Matches(const moduleEntry_t *module)
+ 	if (isSlimPSTwo()) {
+ 		available = loaderConfig.enableDev9;
+ 	} else {
++#ifndef NO_FAT_DEV9_RELAY
++		/* The emulator always has the HDD/network adapter, but the probe does not see it. */
++		available = loaderConfig.enableDev9;
++#else
+ 		available = loaderConfig.enableDev9 && (ps2dev9_probed() > 0);
++#endif
+ 	}
+ 
+ 	return module->dev9 == (available ? 1 : -1);
+@@ -2313,6 +2318,7 @@ static int real_loader(void)
+ 		(char *) (((uint32_t) &((ps2_bootpage_t *) PS2_BOOTINFO_OLDADDR)->commandline[0]) | KSEG0_MASK);
+ 
+ 	SetSysConf(&bootpage.bootinfo.sysconf);
++	nvram_get_clock(&bootpage.bootinfo.boot_time);
+ 
+ 	kprintf("Started loader\n");
+ 
+-- 
+2.34.1
+
